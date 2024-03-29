@@ -254,7 +254,7 @@ def _audits(node, key, value=None, default=None, delete=False):
 
     node._audits[key] = value
 
-def _types_binop_mult(t_l, t_r):
+def _types_binop_mult_add(t_l, t_r):
     t = TypeErrorRoot('arguments must be public or secret integers')
     if (t_l, t_r) == (SecretInteger, SecretInteger):
         t = SecretInteger
@@ -288,11 +288,15 @@ def rules(a):
             for a_ in a.body:
                 rules(a_)
 
-    elif isinstance(a, ast.Assign):
+    elif isinstance(a, (ast.Assign, ast.AnnAssign)):
         prohibited = False
         rules(a.value)
 
     elif isinstance(a, ast.Return):
+        prohibited = False
+        rules(a.value)
+
+    elif isinstance(a, ast.Expr):
         prohibited = False
         rules(a.value)
 
@@ -303,6 +307,10 @@ def rules(a):
             rules(comprehension.iter)
 
     elif isinstance(a, ast.Call):
+        for a_ in a.args:
+            rules(a_)
+        for a_ in a.keywords:
+            rules(a_.value)
         if isinstance(a.func, ast.Name):
             if a.func.id in (
                 'range', 'str', 'sum',
@@ -310,10 +318,9 @@ def rules(a):
                 'PublicInteger', 'SecretInteger'
             ):
                 prohibited = False
-                for a_ in a.args:
-                    rules(a_)
-                for a_ in a.keywords:
-                    rules(a_.value)
+        elif isinstance(a.func, ast.Attribute):
+            if a.func.attr == 'append':
+                prohibited = False
 
     elif isinstance(a, ast.Subscript):
         prohibited = False
@@ -368,17 +375,40 @@ def types(a, env=None):
                 env_ = types(a_, env_)
         return env
 
-    elif isinstance(a, ast.Assign):
+    elif isinstance(a, (ast.Assign, ast.AnnAssign)):
         types(a.value, env)
         t = _audits(a.value, 'types')
+
+        if hasattr(a, 'annotation'):
+            t = eval(ast.unparse(a.annotation))
+
         if t is not None:
             _audits(a, 'types', typeerror_demote(t))
             if not isinstance(t, TypeError):
-                var = a.targets[0].id
-                env[var] = _audits(a.value, 'types')
+                target = a.targets[0] if hasattr(a, 'targets') else a.target
+                if isinstance(target, ast.Name):
+                    var = target.id
+                    env[var] = t
+
         return env
 
     elif isinstance(a, ast.Return):
+        types(a.value, env)
+        t = _audits(a.value, 'types')
+        if t is not None:
+            _audits(a, 'types', t)
+        return env
+
+    elif isinstance(a, ast.For):
+        types(a.iter, env)
+        var = a.target.id
+        _audits(a.target, 'types', int)
+        env[var] = int
+        for a_ in a.body:
+            env = types(a_, env)
+        return env
+
+    elif isinstance(a, ast.Expr):
         types(a.value, env)
         t = _audits(a.value, 'types')
         if t is not None:
@@ -406,12 +436,18 @@ def types(a, env=None):
             _audits(a, 'types', list[t_e])
 
     elif isinstance(a, ast.Call):
-        if isinstance(a.func, ast.Name):
-            for a_ in a.args:
-                types(a_, env)
-            for a_ in a.keywords:
-                types(a_.value, env)
+        for a_ in a.args:
+            types(a_, env)
+        for a_ in a.keywords:
+            types(a_.value, env)
 
+        if isinstance(a.func, ast.Attribute):
+            types(a.func.value, env)
+            t = _audits(a.func.value, 'types')
+            _audits(a.func, 'types', t)
+            _audits(a, 'types', t)
+
+        elif isinstance(a.func, ast.Name):
             if a.func.id == 'Party':
                 t = TypeError('party requires name parameter')
                 if (
@@ -535,8 +571,9 @@ def types(a, env=None):
         t_s = _audits(a.slice, 'types')
         t = TypeError('expecting list value and integer index')
         if t_v.__name__ == 'list' and t_s == int:
-            t = t_v.__args__[0]
-            _audits(a, 'types', t)
+            if hasattr(t_v, '__args__') and len(t_v.__args__) == 1:
+                t = t_v.__args__[0]
+                _audits(a, 'types', t)
 
     elif isinstance(a, ast.List):
         for a_ in a.elts:
@@ -544,9 +581,11 @@ def types(a, env=None):
 
         ts = [_audits(a_, 'types') for a_ in a.elts]
         t = TypeError('lists must contain elements that are all of the same type')
-        if len(set(ts)) == 1:
-           t = ts[0]
-        _audits(a, 'types', list[t])
+        if len(set(ts)) == 0:
+           t = list
+        elif len(set(ts)) == 1:
+           t = list[ts[0]]
+        _audits(a, 'types', t)
 
     elif isinstance(a, ast.BinOp):
         types(a.left, env)
@@ -554,12 +593,14 @@ def types(a, env=None):
         t_l = _audits(a.left, 'types')
         t_r = _audits(a.right, 'types')
         if isinstance(a.op, ast.Mult):
-            t = _types_binop_mult(t_l, t_r)
+            t = _types_binop_mult_add(t_l, t_r)
             _audits(a, 'types', t)
         elif isinstance(a.op, ast.Add):
-            t = TypeError('expecting two string arguments')
+            t = TypeError('unsupported argument types')
             if t_l == str and t_r == str:
                 t = str
+            else:
+                t = _types_binop_mult_add(t_l, t_r)
             _audits(a, 'types', t)
 
     elif isinstance(a, ast.Name):
@@ -581,7 +622,9 @@ def types(a, env=None):
 def _type_to_str(t):
     if hasattr(t, '__name__'):
         if t.__name__ == 'list':
-            return 'list[' + _type_to_str(t.__args__[0]) + ']'
+            if hasattr(t, '__args__'):
+                return 'list[' + _type_to_str(t.__args__[0]) + ']'
+            return 'list'
 
         return str(t.__name__)
     
@@ -649,8 +692,9 @@ def _enrich_from_audits(report_: report, atok) -> report:
         r = _audits(a, 'rules') 
         t = _audits(a, 'types')
 
-        if isinstance(a, ast.Assign):
-            (start, end) = _locations(report_, atok, a.targets[0])
+        if isinstance(a, (ast.Assign, ast.AnnAssign)):
+            target = a.targets[0] if hasattr(a, 'targets') else a.target
+            (start, end) = _locations(report_, atok, target)
             if isinstance(r, SyntaxRestriction):
                 _enrich_syntaxrestriction(report_, r, start, end)
             else:
@@ -674,6 +718,10 @@ def _enrich_from_audits(report_: report, atok) -> report:
                 _enrich_keyword(report_, start, 6)
                 (start, end) = _locations(report_, atok, a.value)
                 _enrich_from_type(report_, _audits(a.value, 'types'), start, end)
+
+        elif isinstance(a, ast.For):
+            (start, end) = _locations(report_, atok, a)
+            _enrich_keyword(report_, start, 3)
 
         elif isinstance(a, ast.FunctionDef):
             (start, end) = _locations(report_, atok, a)

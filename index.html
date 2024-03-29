@@ -427,7 +427,7 @@ def nada_main():
 
     return [Output(g, "g", p4)]
 </pre>
-<pre class="example" id="voting">
+<pre class="example" id="voting-functional-style">
 from nada_audit import *
 
 def nada_main():
@@ -451,6 +451,39 @@ def nada_main():
       Output(sum(votes_per_candidate[c]), "c" + str(c), outparty)
       for c in range(4)
     ]
+</pre>
+<pre class="example" id="voting-imperative-style">
+# In this example, note that empty lists must be accompanied by an explicit
+# type annotation.
+
+from nada_audit import *
+
+def nada_main():
+
+    # Create the voter parties and recipient party.
+    voters: list[Party] = []
+    for v in range(2):
+        voters.append(Party("Party" + str(v)))
+    outparty = Party(name="OutParty")
+
+    # Gather the inputs (one vote for each candidate from each voter).
+    votes_per_candidate: list[list[SecretInteger]] = []
+    for c in range(4):
+        votes_per_candidate.append([])
+        for v in range(2):
+            votes_per_candidate[c].append(SecretInteger(
+                Input(
+                    name="v" + str(v) + "_c" + str(c),
+                    party=Party("Party" + str(v))
+                )
+            ))
+
+    # Calculate the total for each candidate.
+    outputs: list[Output] = []
+    for c in range(4):
+        outputs.append(Output(sum(votes_per_candidate[c]), "c" + str(c), outparty))
+
+    return outputs
 </pre>
   </body>
 </html>
