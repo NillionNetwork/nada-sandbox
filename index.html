@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nada Sandbox</title>
+    <script>
+      var favIcon = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAGFBMVEUAAABHcEwAAAAAAAAAAAAAAAAAAAAAAACpMnD0AAAAB3RSTlNjAL+fpPk8rO4B2AAAADNJREFUGJVjYEQDDIxsLMxwwMIGFGBgRwIMOAVYgQBZgAlkHNMgEwB6joUB7E8WiOfQAADiPANLertncwAAAABJRU5ErkJggg==";
+      var docHead = document.getElementsByTagName('head')[0];
+      var newLink = document.createElement('link');
+      newLink.rel = 'shortcut icon';
+      newLink.type = 'image/x-icon';
+      newLink.href = 'data:image/png;base64,'+favIcon;
+      docHead.appendChild(newLink);
+    </script>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabin" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css"></link>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/monokai.min.css"></link>
+    <style>
+      body { min-width:1200px; font-family:'Cabin',sans-serif; }
+      #pyscript_loading_splash { top: 40px !important; height:160px !important; }
+      .container { max-width:1260px; }
+      main { padding:40px; }
+      .flex-equal > * { flex:1; }
+      @media (min-width: 768px) { .flex-md-equal > * { flex:1; } }
+      .header { padding-bottom:24px; font-size:18px; }
+      .header > h2 { margin-bottom:2px; font-weight:400; }
+      .header > hr { width:100%; margin:0px 0px 6px 0px; border-top:1px solid #000000; opacity:1; }
+      .grid-row {
+        display:grid;
+        grid-auto-rows:auto;
+        grid-row-gap:0px;
+        grid-column-gap:0px;
+        grid-template-columns:1fr 4fr 4fr;
+      }
+      .grid-col { padding:0px; }
+
+      .example { display:none; }
+      .example-link { cursor:pointer; }
+      .example-link:hover { background-color:#444444; color:#FFFFFF; cursor:pointer; }
+      .example-link-selected { background-color:blue; color:#FFFFFF; }
+      .example-link-selected:hover { background-color:blue; color:#FFFFFF; }
+      #examples { padding:6px; background-color:#BBBBBB; font-size:11px; }
+
+      #editor-container { font-size:12px; }
+      #analysis-container { border:1px solid #777777; padding:5px; }
+      #analysis { font-family:Monospace; font-size:12px; }
+
+      .keyword { font-weight:bold; color:#000000; }
+      .rules-SyntaxError { background-color:#FFFF00; color:#555555; }
+      .rules-SyntaxRestriction { background-color:#CCCC00; font-weight:bold; color:#000000; }
+      .types-TypeError { background-color:#FFCCCB; font-weight:bold; color:#B22222; }
+      .types-TypeErrorRoot { background-color:#FF0000; font-weight:bold; color:#FFFFFF ; }
+      .types-str { font-weight:bold; color:#000000; }
+      .types-int { font-weight:bold; color:#000000; }
+      .types-Party { font-weight:bold; color:#d45cd6; }
+      .types-Input { font-weight:bold; color:#DAA520; }
+      .types-Output { font-weight:bold; color:#DAA520; }
+      .types-PublicInteger { font-weight:bold; color:#009900; }
+      .types-SecretInteger { font-weight:bold; color:#0000FF; }
+      #analysis > div { height:18px; line-height:18px; white-space:pre; }
+      #analysis > div span { padding-top:3px; padding-bottom:3px; line-height:18px; cursor:pointer; }
+      .detail { cursor:pointer; }
+      .detail:hover { background-color:#DDDDDD; }
+      #detail {
+        display:none;
+        position:absolute;
+        height:40px !important;
+        padding:12px;
+        background-color:#000000;
+        color:#FFFFFF;
+      }
+
+      .tooltip { font-size:14px; }
+      .tooltip table { margin:4px 0px 4px 0px; border:1px solid #888888; }
+      .tooltip td { padding:6px; border:1px solid #888888; text-align:left; }
+
+      .io-panel { width:100%; font-family:Monospace; font-size:12px; font-weight:bold; }
+      .io-panel table { width:100%; }
+      .io-panel td { height:32px; padding:4px; border:1px solid #000000; }
+
+      .noselect {
+        -webkit-touch-callout:none; /* iOS Safari */
+          -webkit-user-select:none; /* Safari */
+           -khtml-user-select:none; /* Konqueror HTML */
+             -moz-user-select:none; /* Old versions of Firefox */
+              -ms-user-select:none; /* Internet Explorer/Edge */
+                  user-select:none; /* Non-prefixed version, currently
+                                       supported by Chrome, Edge, Opera and Firefox */
+      }
+    </style>
+  </head>
+  <body onload="init();">
+    <main>
+      <div>
+        <div class="header noselect">
+          <h2><b>Nada</b> Sandbox</h2>
+          <hr/>
+          <span>Write, analyze, and simulate Nada programs in your browser.</span>
+        </div>
+        <div class="grid-row">
+          <div id="examples" class="grid-col" style="min-width:120px;">
+            <b>Click below to load example:</b><br/>
+          </div>
+          <div id="editor-container" style="text-align:left;" class="grid-col">
+            <textarea id="editor"></textarea>
+          </div>
+          <div class="grid-col">
+            <div id="analysis-container">
+              <textarea id="payload" style="display:none;"></textarea>
+              <div id="analysis" style="font-family:Monospace; text-align:left;">loading</div>
+            </div>
+            <py-config>
+              packages = ["asttokens", "richreports"]
+
+              [[fetch]]
+              files = ['parsial.py']
+              from = 'https://raw.githubusercontent.com/reity/parsial/main/src/parsial/'
+
+              [[fetch]]
+              files = ['nada_audit.py']
+            </py-config>
+            <section class="pyscript">
+              <py-script>
+                from js import document
+                from pyodide.ffi import create_proxy, to_js
+                import types
+                import json
+                import ast
+                import inspect
+                import asttokens
+                from nada_audit import *
+
+                def update(_):
+                    source = \
+                        document.getElementById('payload').innerHTML \
+                        .replace('&' + 'amp;', '&') \
+                        .replace('&' + 'lt;', '<') \
+                        .replace('&' + 'gt;', '>')
+
+                    # Perform static analyses and render the report.
+                    try:
+                        lines = source.split('\n')
+                        report = audit(source)
+                        rlines = report.render().split('\n')
+                        js.render(to_js(rlines))
+                    except Exception as e:
+                        pass
+
+                    # Perform abstract interpretation to determine inputs
+                    # and then simulate the program on the inputs (either
+                    # randomly generated or user-supplied).
+                    try:
+                        ins = js.inputsRetrieve()
+                        context = {}
+                        Abstract.initialize(ins.to_py())
+                        exec(source, context)
+                        outs = context['nada_main']()
+                        if len(outs) > 0:
+                            js.inputsShow(to_js([i.name for i in outs[0].inputs]))
+                            js.outputsShow(to_js([[o.name, o.value.value] for o in outs[0].outputs]))
+                    except Exception as e:
+                        pass
+
+                document.addEventListener('update', create_proxy(update))
+                pyscript.write('analysis', 'ready')
+                js.update()
+              </py-script>
+            </section>
+          </div>
+        </div>
+        <div class="grid-row">
+          <div class="grid-col" style="min-width:120px; padding:12px; font-size:12px; font-weight:bold;">
+          Input boxes are generated automatically from the Nada program source code. Editing these values automatically updates the output via Python-only execution of the program.
+          </div>
+          <div class="grid-col io-panel" id="inputs"></div>
+          <div class="grid-col io-panel" id="outputs"></div>
+        </div>
+      </div>
+    </main>
+    <footer class="text-center text-lg-start bg-light text-muted fixed-bottom">
+      <div class="text-center p-4" style="background-color:rgb(0,0,255);">
+      </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" 
+            integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+            crossorigin="anonymous">
+    </script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/python/python.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <script>
+      function inputsRetrieve() {
+        let inputs = {};
+        const elements = document.getElementsByClassName("input");
+        for (let i = 0; i < elements.length; i++) {
+          const element = elements[i];
+          inputs[element.id] = parseInt(element.value);
+        }
+        return inputs;
+      }
+
+      function inputsShow(ins) {
+        const signature = ins.join(',');
+        if (signature == cache.signature) {
+          return;
+        } else {
+          cache.signature = signature;
+        }
+
+        const element = document.getElementById("inputs");
+        element.innerHTML = "";
+        const table = document.createElement("table");
+        table.innerHTML = "<tr><td>Input Name</td><td>Input Value</td></tr>"
+        for (let i = 0; i < ins.length; i++) {
+          const tr = document.createElement("tr");
+          const tdName = document.createElement("td");
+          const name = ins[i];
+          tdName.innerHTML = name;
+          const tdValue = document.createElement("td");
+          if (!(name in cache.inputs)) {
+            cache.inputs[name] = Math.floor(Math.random() * 256);
+          }
+          const value = cache.inputs[name];
+          tdValue.innerHTML = '<input class="input" id="' + name + '" type="number" value="' + value + '"/>';
+          tr.appendChild(tdName);
+          tr.appendChild(tdValue);
+          table.appendChild(tr);
+        }
+        element.appendChild(table);
+        
+        const elements = document.getElementsByClassName("input");
+        for (let i = 0; i < elements.length; i++) {
+          const element = elements[i];
+          const upd = function() {
+            cache.inputs[element.id] = parseInt(element.value);
+            update(true);
+          };
+          element.addEventListener("keyup", upd);
+          element.addEventListener("change", upd);
+        }
+      }
+
+      function outputsShow(outs) {
+        const element = document.getElementById("outputs");
+        element.innerHTML = "";
+        const table = document.createElement("table");
+        table.innerHTML = "<tr><td>Output Name</td><td>Output Value</td></tr>"
+        for (let i = 0; i < outs.length; i++) {
+          const tr = document.createElement("tr");
+          const tdName = document.createElement("td");
+          tdName.innerHTML = outs[i][0];
+          const tdValue = document.createElement("td");
+          tdValue.innerHTML = outs[i][1];
+          tr.appendChild(tdName);
+          tr.appendChild(tdValue);
+          table.appendChild(tr);
+        }
+        element.appendChild(table);
+      }
+
+      function render(rlines) {
+        if (rlines == null) {
+          rlines = cache.rlines;
+        } else {
+          cache.rlines = rlines;
+          cache.report = {};
+        }
+
+        const scrollTop = $(window).scrollTop();
+        const codeTop = document.querySelector(".CodeMirror-code").getBoundingClientRect().top;
+        const rowFirst = 0 + Math.round(
+          .5 + .77777 + 7 + editor.getViewport().from - ((codeTop + scrollTop) / 18)
+        );
+        let linesOutput = [];
+        for (let i = rowFirst; i < Math.min(rlines.length, rowFirst + rowRange); i++) {
+          const row = i + 1;
+          if (row in cache.report) {
+            linesOutput.push(cache.report[row]);
+          } else {
+            html = rlines[i];
+            linesOutput.push(html);
+            cache.report[row] = html;
+          }
+        }
+        document.getElementById('analysis').innerHTML = '<div id="detail"></div>' + linesOutput.join("");
+
+        // Set up event handlers for detail tooltips.
+        const elements = document.getElementsByClassName("detail");
+        for (let i = 0; i < elements.length; i++) {
+          const element = elements[i];
+          element.addEventListener("mouseover", function (event) {
+            const detail = document.getElementById("detail");
+            detail.style.display = "block";
+            detail.style.top = element.offsetTop + 24 + "px";
+            detail.style.left = (
+              element.offsetLeft +
+              element.getBoundingClientRect().width -
+              16
+            ) + "px";
+            detail.innerHTML = element.dataset.detail;
+          });
+          element.addEventListener("mouseout", function (event) { 
+            const detail = document.getElementById("detail");
+            detail.style.display = "none";
+          });
+        }
+      }
+
+      function update(force) {
+        $('.tooltip').remove();
+        const source = editor.getValue();
+        if (cache.analyses == null || source != cache.source || force) {
+          cache.source = source;
+          document.getElementById('payload').innerHTML = editor.getValue();
+          document.dispatchEvent(new CustomEvent('update'));
+        } else {
+          render();
+        }
+      }
+
+      function init() {
+        editor = new CodeMirror.fromTextArea(
+          document.querySelector('#editor'),
+          {
+            lineNumbers: true,
+            viewportMargin: 2, // Use `Infinity` when disabling scroll.
+            scrollbarStyle: null,
+            tabSize: 4,
+            mode: 'python',
+            theme: 'monokai'
+          }
+        );
+
+        editor.on("keyup", update);
+        editor.on("mousemove", update);
+        let sh = editor.getScrollerElement();
+        sh.addEventListener('mousemove', update); 
+        sh.addEventListener('scroll', update);
+
+        const codePanelsHeight = (18 * rowRange) + 7;
+        editor.setSize(null, codePanelsHeight);
+        document.getElementById("analysis").style.height = (codePanelsHeight - 12) + "px";
+
+        // Build links to load example programs.
+        const textareas = document.querySelectorAll('.example');
+        const links = document.getElementById('examples');
+        for (let i = 0; i < textareas.length; i++) {
+          const div = document.createElement("div");
+          div.appendChild(document.createTextNode(textareas[i].id));
+          div.classList.add("example-link");
+          if (i == 0) {
+            div.classList.add("example-link-selected");
+          }
+          div.onclick = function() {
+            const links_ = document.querySelectorAll('.example-link');
+            for (let j = 0; j < links_.length; j++) {
+              links_[j].className = "example-link";
+            }
+            div.classList.add("example-link-selected");
+            editor.setValue(document.getElementById(textareas[i].id).innerText);
+            update();
+          };
+          links.appendChild(div);
+        }
+
+        // Load the default example.
+        editor.setValue(document.getElementById("multiplication_mixed_simple").innerText);
+        update();
+      }
+
+      let editor = null;
+      const rowRange = 27; // Number of lines displayed in interactive editor.
+      let cache = {
+        'source': null,
+        'skips': null,
+        'analyses': null,
+        'report': null,
+        'rlines': null,
+        'inputs': {},
+        'signature': null
+      };
+    </script>
+<pre class="example" id="multiplication_mixed_simple">
+# The left-hand panel can scrolled and edited. The right-hand
+# panel will automatically be updated with the results of the
+# type checking and cost calculation static analyses. Green
+# represents public Nada expressions/values and blue represents
+# secret Nada expressions/values.
+
+# On the right-hand panel, hover over variable names to see a
+# count of the total number of *secret* operations that must be
+# executed to determine the value of that variable at that point
+# in the program. There is no deduplication (as in the current
+# implementation).
+
+from nada_audit import *
+
+def nada_main():
+    party1 = Party(name="Party1")
+    my_int1 = PublicInteger(Input(name="my_int1", party=party1))
+    my_int2 = SecretInteger(Input(name="my_int2", party=party1))
+
+    new_int = my_int1 * my_int2
+
+    return [Output(new_int, "my_output", party1)]
+</pre>
+<pre class="example" id="multiplication_mixed_larger">
+from nada_audit import *
+
+def nada_main():
+    p1 = Party("Party1")
+    p2 = Party("Party2")
+    p3 = Party("Party3")
+    p4 = Party("Party4")
+    a = PublicInteger(Input("a", p1))
+    b = SecretInteger(Input("b", p1))
+    c = PublicInteger(Input("c", p2))
+    d = SecretInteger(Input("d", p2))
+    e = PublicInteger(Input("e", p3))
+    f = SecretInteger(Input("f", p3))
+
+    g = a * b * c * d * e * f
+
+    return [Output(g, "g", p4)]
+</pre>
+<pre class="example" id="voting">
+from nada_audit import *
+
+def nada_main():
+    voters = [Party("Party" + str(v)) for v in range(2)]
+    outparty = Party(name="OutParty")
+
+    votes_per_candidate = [
+        [
+            SecretInteger(
+                Input(
+                    name="v" + str(v) + "_c" + str(c),
+                    party=Party("Party" + str(v))
+                )
+            )
+            for v in range(2)
+        ]
+        for c in range(4)
+    ]
+
+    return [
+      Output(sum(votes_per_candidate[c]), "c" + str(c), outparty)
+      for c in range(4)
+    ]
+</pre>
+  </body>
+</html>
