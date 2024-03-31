@@ -113,11 +113,7 @@
               <div id="analysis" style="font-family:Monospace; text-align:left;">loading</div>
             </div>
             <py-config>
-              packages = ["asttokens", "richreports"]
-
-              [[fetch]]
-              files = ['parsial.py']
-              from = 'https://raw.githubusercontent.com/reity/parsial/main/src/parsial/'
+              packages = ["parsial~=0.1", "richreports~=0.2", "asttokens~=2.4"]
 
               [[fetch]]
               files = ['nada_audit.py']

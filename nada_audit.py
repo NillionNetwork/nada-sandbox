@@ -7,8 +7,8 @@ from typing import Union, List, Tuple
 import argparse
 import ast
 import asttokens
-from richreports import location, report
-from parsial import parsial
+import richreports
+import parsial
 
 class Rule(Exception):
     pass
@@ -238,8 +238,9 @@ class SecretInteger(Abstract):
 
 def _parse(source: str) -> Tuple[asttokens.ASTTokens, List[int]]:
     lines = source.split('\n')
-    skips = {i: None for i in parsial(ast.parse)(source)}
-    lines_ = ['' if i in skips else line for (i, line) in enumerate(lines)]
+    (_, slices) = parsial.parsial(ast.parse)(source)
+    lines_ = [l[s] for (l, s) in zip(lines, slices)]
+    skips = [i for i in range(len(lines)) if len(lines[i]) != len(lines_[i])]
     return (asttokens.ASTTokens('\n'.join(lines_), parse=True), skips)
 
 def _audits(node, key, value=None, default=None, delete=False):
@@ -660,12 +661,15 @@ def _enrich_syntaxrestriction(report_, r, start, end):
     report_.enrich(
         start, end,
         '<span class="rules-SyntaxRestriction">', '</span>',
-        True
+        enrich_intermediate_lines=True,
+        skip_whitespace=True
     )
     report_.enrich(
         start, end,
         '<span class="detail" data-detail="SyntaxRestriction: ' + str(r) + '">',
-        '</span>'
+        '</span>',
+        enrich_intermediate_lines=True,
+        skip_whitespace=True
     )
 
 def _enrich_keyword(report_, start, length):
@@ -687,7 +691,7 @@ def _locations(report_, asttokens_, a):
 
     return ((start_line, start_column), (end_line, end_column - 1))
 
-def _enrich_from_audits(report_: report, atok) -> report:
+def _enrich_from_audits(report_: richreports.report, atok) -> richreports.report:
     for a in ast.walk(atok.tree):
         r = _audits(a, 'rules') 
         t = _audits(a, 'types')
@@ -798,7 +802,7 @@ def _enrich_from_audits(report_: report, atok) -> report:
                     True
                 )
 
-def audit(source: str) -> report:
+def audit(source: str) -> richreports.report:
     """
     Take a Python source file representing a Nada program, statically analyze
     it, and generate a report detailing the results.
@@ -817,17 +821,19 @@ def audit(source: str) -> report:
 
     # Add the results of the analyses to the report and ensure each line is
     # wrapped as an HTML element.
-    report_ = report(source)
+    report_ = richreports.report(source, line=1, column=0)
     _enrich_from_audits(report_, atok)
     for (i, line) in enumerate(report_.lines):
         if i in skips:
             report_.enrich(
                 (i + 1, 0), (i + 1, len(line) - 1),
-                '<span class="rules-SyntaxError">', '</span>'
+                '<span class="rules-SyntaxError">', '</span>',
+                skip_whitespace=True
             )
             report_.enrich(
                 (i + 1, 0), (i + 1, len(line) - 1),
-                '<span class="detail" data-detail="SyntaxError">', '</span>'
+                '<span class="detail" data-detail="SyntaxError">', '</span>',
+                skip_whitespace=True
             )
         report_.enrich((i + 1, 0), (i + 1, len(line) - 1), '    <div>', '</div>')
 
