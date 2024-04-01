@@ -102,7 +102,9 @@
       }
       .panel {
         min-height:300px;
-        border;1px solid #F0F0F0;
+        border-left:1px solid #000000;
+        border-right:1px solid #000000;
+        border-bottom:1px solid #000000;
         background-color:#F0F0F0;
       }
 
@@ -217,7 +219,7 @@
             </div>
           </div>
           <div style="display:table-row; width:100%;">
-            <div style="display:table-cell; width:160px; padding:12px 0px 12px 12px; vertical-align:top; font-size:12px; font-weight:bold;">
+            <div style="display:table-cell; position:relative; top:-1px; left:1px; width:160px; padding:0px 0px 12px 5px; vertical-align:top; font-size:12px; font-weight:bold;">
               <div class="panel-tab">
                 <b>Interpreter with Inputs/Outputs</b>
                 <hr style="margin:4px 0px 4px 0px;"/>
@@ -328,6 +330,12 @@
             const resp = await new Response(compressedReadableStream);
             const blob = await resp.blob();
             value = await blob.text(); // For no compression: atob(b64compressed);
+            
+            // Ensure that none of the example links are highlighted.
+            const links = document.querySelectorAll('.example-link');
+            for (let i = 0; i < links.length; i++) {
+              links[i].classList.remove("example-link-selected");
+            }
           }
           this.editor.codeMirror.setValue(value);
         }
@@ -569,8 +577,8 @@
         window.addEventListener('resize', resize, true);
 
         // Initialize and perform an initial update (in case working code is already present).
-        manager.buildExampleMenu();
         manager.buildPermalinkButton();
+        manager.buildExampleMenu();
         manager.loadInitialSource();
         resize();
         update();
