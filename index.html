@@ -102,6 +102,7 @@
       }
       .panel {
         min-height:300px;
+        border;1px solid #F0F0F0;
         background-color:#F0F0F0;
       }
 
@@ -209,13 +210,14 @@
 
                   document.addEventListener('update', create_proxy(update))
                   pyscript.write('report', 'ready')
+                  js.resize()
                   js.update()
                 </py-script>
               </section>
             </div>
           </div>
           <div style="display:table-row; width:100%;">
-            <div style="display:table-cell; width:160px; padding:12px 0px 12px 12px; font-size:12px; font-weight:bold;">
+            <div style="display:table-cell; width:160px; padding:12px 0px 12px 12px; vertical-align:top; font-size:12px; font-weight:bold;">
               <div class="panel-tab">
                 <b>Interpreter with Inputs/Outputs</b>
                 <hr style="margin:4px 0px 4px 0px;"/>
@@ -547,6 +549,13 @@
         );
       }
 
+      function resize() {
+        manager.sizeUpdate();
+        editor.sizeUpdate();
+        report.sizeUpdate();
+        interpreter.sizeUpdate();
+      }
+
       window.onload = async function () {
         const editorHeight = 27; // Vertical height of editor in lines.
         const managerWidth = 160; // Width of manager sidebar in pixels.
@@ -554,15 +563,9 @@
         editor = new Editor("editor", editorHeight, managerWidth, update);
         report = new Report("report", editor);
         interpreter = new Interpreter("interpreter");
-        let manager = new Manager("manager", managerWidth, editor);
+        manager = new Manager("manager", managerWidth, editor);
 
          // Resize components on window resize.
-        const resize = function () {
-          manager.sizeUpdate();
-          editor.sizeUpdate();
-          report.sizeUpdate();
-          interpreter.sizeUpdate();
-        }
         window.addEventListener('resize', resize, true);
 
         // Initialize and perform an initial update (in case working code is already present).
@@ -577,6 +580,7 @@
       let editor = null;
       let report = null;
       let interpreter = null;
+      let manager = null;
       function reportDisplay(rlines) { report.display(rlines); }
       function interpreterInputsRetrieve() { return interpreter.inputsRetrieve(); }
       function interpreterInputsShow(ins) { interpreter.inputsShow(ins); }
