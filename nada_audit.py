@@ -821,23 +821,23 @@ def audit(source: str) -> richreports.report:
 
     # Add the results of the analyses to the report and ensure each line is
     # wrapped as an HTML element.
-    report_ = richreports.report(source, line=1, column=0)
-    _enrich_from_audits(report_, atok)
-    for (i, line) in enumerate(report_.lines):
+    report = richreports.report(source, line=1, column=0)
+    _enrich_from_audits(report, atok)
+    for (i, line) in enumerate(report.lines):
         if i in skips:
-            report_.enrich(
+            report.enrich(
                 (i + 1, 0), (i + 1, len(line) - 1),
                 '<span class="rules-SyntaxError">', '</span>',
                 skip_whitespace=True
             )
-            report_.enrich(
+            report.enrich(
                 (i + 1, 0), (i + 1, len(line) - 1),
                 '<span class="detail" data-detail="SyntaxError">', '</span>',
                 skip_whitespace=True
             )
-        report_.enrich((i + 1, 0), (i + 1, len(line) - 1), '    <div>', '</div>')
+        report.enrich((i + 1, 0), (i + 1, len(line)), '<div>', '</div>')
 
-    return report_
+    return report
 
 def _main():
     parser = argparse.ArgumentParser()
@@ -847,7 +847,7 @@ def _main():
 
     with open(path, 'r', encoding='UTF-8') as file:
         source = file.read()
-        report_ = audit(source)
+        report = audit(source)
 
     with open(path[:-2] + 'html', 'w') as file:
         head = ''
@@ -855,7 +855,7 @@ def _main():
             '<html>' +
             head +
             '  <body>\n    <div id="detail"></div>\n' +
-            report_.render() +
+            report.render() +
             '\n  </body>\n</html>\n'
         )
 

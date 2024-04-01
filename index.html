@@ -17,10 +17,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css"></link>
+    <link rel="stylesheet" href="https://codemirror.net/5/addon/scroll/simplescrollbars.css"></link>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/monokai.min.css"></link>
     <style>
       body { min-width:1200px; font-family:'Cabin',sans-serif; }
-      #pyscript_loading_splash { top: 40px !important; height:160px !important; }
+      #pyscript_loading_splash { }
       .container { max-width:1260px; }
       main { padding:40px; }
       .flex-equal > * { flex:1; }
@@ -28,25 +29,33 @@
       .header { padding-bottom:24px; font-size:18px; }
       .header > h2 { margin-bottom:2px; font-weight:400; }
       .header > hr { width:100%; margin:0px 0px 6px 0px; border-top:1px solid #000000; opacity:1; }
-      .grid-row {
-        display:grid;
-        grid-auto-rows:auto;
-        grid-row-gap:0px;
-        grid-column-gap:0px;
-        grid-template-columns:1fr 4fr 4fr;
-      }
-      .grid-col { padding:0px; }
 
+      #manager { padding:6px; }
+      #permalink { width:100%; border:1px solid #000000; font-size:12px; font-family:Monospace; }
+      #permalink-copy { 
+        width:100%;
+        padding:6px 6px 6px 6px;
+        border:1px solid #000000;
+        background-color:#0000FF;
+        font-size:14px;
+        color:#FFFFFF;
+      }
+      #examples {
+        overflow:hidden;
+        border:1px solid #000000;
+        padding:4px;
+        background-color:#F0F0F0;
+        font-size:11px;
+      }
       .example { display:none; }
       .example-link { cursor:pointer; }
       .example-link:hover { background-color:#444444; color:#FFFFFF; cursor:pointer; }
       .example-link-selected { background-color:blue; color:#FFFFFF; }
       .example-link-selected:hover { background-color:blue; color:#FFFFFF; }
-      #examples { padding:6px; background-color:#BBBBBB; font-size:11px; }
 
       #editor-container { font-size:12px; }
-      #analysis-container { border:1px solid #777777; padding:5px; }
-      #analysis { font-family:Monospace; font-size:12px; }
+      #report-container { position:absolute; border:1px solid #777777; padding:5px; overflow:hidden; }
+      #report { position:relative; font-family:Monospace; font-size:12px; }
 
       .keyword { font-weight:bold; color:#000000; }
       .rules-SyntaxError { background-color:#FFFF00; color:#555555; }
@@ -60,8 +69,8 @@
       .types-Output { font-weight:bold; color:#DAA520; }
       .types-PublicInteger { font-weight:bold; color:#009900; }
       .types-SecretInteger { font-weight:bold; color:#0000FF; }
-      #analysis > div { height:18px; line-height:18px; white-space:pre; }
-      #analysis > div span { padding-top:3px; padding-bottom:3px; line-height:18px; cursor:pointer; }
+      #report > div { height:18px; line-height:18px; white-space:pre; }
+      #report > div span { padding-top:3px; padding-bottom:3px; line-height:18px; cursor:pointer; }
       .detail { cursor:pointer; }
       .detail:hover { background-color:#DDDDDD; }
       #detail {
@@ -77,9 +86,24 @@
       .tooltip table { margin:4px 0px 4px 0px; border:1px solid #888888; }
       .tooltip td { padding:6px; border:1px solid #888888; text-align:left; }
 
-      .io-panel { width:100%; font-family:Monospace; font-size:12px; font-weight:bold; }
-      .io-panel table { width:100%; }
-      .io-panel td { height:32px; padding:4px; border:1px solid #000000; }
+      .panel-io { width:50%; margin:8px; font-family:Monospace; font-size:12px; font-weight:bold; }
+      .panel-io table { width:100%; border:1px solid #BBBBBB; }
+      .panel-io td { height:32px; padding:4px; border:1px solid #BBBBBB; }
+      .panel-io input { border:1px solid #000000; }
+
+      .panel-tab {
+        padding:8px;
+        border-top:1px solid #000000;
+        border-left:1px solid #000000; 
+        border-bottom:1px solid #000000;
+        background-color:#F0F0F0;
+        line-height:16px;
+        cursor:pointer;
+      }
+      .panel {
+        min-height:300px;
+        background-color:#F0F0F0;
+      }
 
       .noselect {
         -webkit-touch-callout:none; /* iOS Safari */
@@ -90,89 +114,121 @@
                   user-select:none; /* Non-prefixed version, currently
                                        supported by Chrome, Edge, Opera and Firefox */
       }
+
+      .CodeMirror-overlayscroll-vertical { width:10px; }
+      .CodeMirror-overlayscroll-horizontal { height:10px; }
+      .CodeMirror-scrollbar-filler { background-color:#777777;}
     </style>
   </head>
-  <body onload="init();">
+  <body>
     <main>
       <div>
-        <div class="header noselect">
+        <div class="header noselect" id="header">
           <h2><b>Nada</b> Sandbox</h2>
           <hr/>
           <span>Write, analyze, and simulate Nada programs in your browser.</span>
         </div>
-        <div class="grid-row">
-          <div id="examples" class="grid-col" style="min-width:120px;">
-            <b>Click below to load example:</b><br/>
-          </div>
-          <div id="editor-container" style="text-align:left;" class="grid-col">
-            <textarea id="editor"></textarea>
-          </div>
-          <div class="grid-col">
-            <div id="analysis-container">
-              <textarea id="payload" style="display:none;"></textarea>
-              <div id="analysis" style="font-family:Monospace; text-align:left;">loading</div>
+        <div style="display:table; width:100%;">
+          <div style="display:table-row; width:100%;">
+            <div style="display:table-cell; width:160px;">
+              <div id="manager">
+                <div style="position:relative; top:5px;">
+                  <button id="permalink-copy">
+                    Copy permanent link to clipboard
+                  </button>
+                  <input id="permalink" type="text" onclick="this.select();" />
+                </div>
+                <br/>
+                <div id="examples">
+                  <b>Select an example:</b>
+                  <hr style="margin:4px 0px 4px 0px;"/>
+                </div>
+              </div>
             </div>
-            <py-config>
-              packages = ["parsial~=0.1", "richreports~=0.2", "asttokens~=2.4"]
+            <div style="display:table-cell; width:calc(100% - 160px);" id="views">
+              <div style="display:table;">
+                <div style="display:table-row;">
+                  <div id="editor-container" style="display:table-cell; width:50%;">
+                    <textarea id="editor"></textarea>
+                  </div>
+                  <div id="report-container" style="display:table-cell;">
+                    <textarea id="payload" style="display:none;"></textarea>
+                    <div id="report" style="font-family:Monospace; text-align:left;">loading</div>
+                  </div>
+                </div>
+              </div>
+              <py-config>
+                packages = ["parsial~=0.1", "richreports~=0.2", "asttokens~=2.4"]
 
-              [[fetch]]
-              files = ['nada_audit.py']
-            </py-config>
-            <section class="pyscript">
-              <py-script>
-                from js import document
-                from pyodide.ffi import create_proxy, to_js
-                import types
-                import json
-                import ast
-                import inspect
-                import asttokens
-                from nada_audit import *
+                [[fetch]]
+                files = ['nada_audit.py']
+              </py-config>
+              <section class="pyscript">
+                <py-script>
+                  from js import document
+                  from pyodide.ffi import create_proxy, to_js
+                  import types
+                  import json
+                  import ast
+                  import inspect
+                  import asttokens
+                  from nada_audit import *
 
-                def update(_):
-                    source = \
-                        document.getElementById('payload').innerHTML \
-                        .replace('&' + 'amp;', '&') \
-                        .replace('&' + 'lt;', '<') \
-                        .replace('&' + 'gt;', '>')
+                  def update(_):
+                      source = \
+                          document.getElementById('payload').innerHTML \
+                          .replace('&' + 'amp;', '&') \
+                          .replace('&' + 'lt;', '<') \
+                          .replace('&' + 'gt;', '>')
 
-                    # Perform static analyses and render the report.
-                    try:
-                        lines = source.split('\n')
-                        report = audit(source)
-                        rlines = report.render().split('\n')
-                        js.render(to_js(rlines))
-                    except Exception as e:
-                        pass
+                      # Perform static analyses and render the report.
+                      try:
+                          lines = source.split('\n')
+                          report = audit(source)
+                          rlines = report.render().split('\n')
+                          js.reportDisplay(to_js(rlines))
+                      except Exception as e:
+                          pass
 
-                    # Perform abstract interpretation to determine inputs
-                    # and then simulate the program on the inputs (either
-                    # randomly generated or user-supplied).
-                    try:
-                        ins = js.inputsRetrieve()
-                        context = {}
-                        Abstract.initialize(ins.to_py())
-                        exec(source, context)
-                        outs = context['nada_main']()
-                        if len(outs) > 0:
-                            js.inputsShow(to_js([i.name for i in outs[0].inputs]))
-                            js.outputsShow(to_js([[o.name, o.value.value] for o in outs[0].outputs]))
-                    except Exception as e:
-                        pass
+                      # Perform abstract interpretation to determine inputs
+                      # and then simulate the program on the inputs (either
+                      # randomly generated or user-supplied).
+                      try:
+                          ins = js.interpreterInputsRetrieve()
+                          context = {}
+                          Abstract.initialize(ins.to_py())
+                          exec(source, context)
+                          outs = context['nada_main']()
+                          if len(outs) > 0:
+                              js.interpreterInputsShow(to_js([i.name for i in outs[0].inputs]))
+                              js.interpreterOutputsShow(
+                                  to_js([[o.name, o.value.value] for o in outs[0].outputs])
+                              )
+                      except Exception as e:
+                          pass
 
-                document.addEventListener('update', create_proxy(update))
-                pyscript.write('analysis', 'ready')
-                js.update()
-              </py-script>
-            </section>
+                  document.addEventListener('update', create_proxy(update))
+                  pyscript.write('report', 'ready')
+                  js.update()
+                </py-script>
+              </section>
+            </div>
           </div>
-        </div>
-        <div class="grid-row">
-          <div class="grid-col" style="min-width:120px; padding:12px; font-size:12px; font-weight:bold;">
-          Input boxes are generated automatically from the Nada program source code. Editing these values automatically updates the output via Python-only execution of the program.
+          <div style="display:table-row; width:100%;">
+            <div style="display:table-cell; width:160px; padding:12px 0px 12px 12px; font-size:12px; font-weight:bold;">
+              <div class="panel-tab">
+                <b>Interpreter with Inputs/Outputs</b>
+                <hr style="margin:4px 0px 4px 0px;"/>
+                Input boxes are generated automatically from the source. Editing inputs updates outputs via Python-only execution of the source.
+              </div>
+            </div>
+            <div style="display:table-cell; width:calc(100% - 160px);">
+              <div class="panel" id="interpreter" style="display:inline-flex; width:100%;">
+                <div class="panel-io" id="inputs"></div>
+                <div class="panel-io" id="outputs"></div>
+              </div>
+            </div>
           </div>
-          <div class="grid-col io-panel" id="inputs"></div>
-          <div class="grid-col io-panel" id="outputs"></div>
         </div>
       </div>
     </main>
@@ -185,200 +241,346 @@
             crossorigin="anonymous">
     </script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+    <script type="text/javascript" src="https://codemirror.net/5/addon/scroll/simplescrollbars.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/python/python.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script defer src="https://pyscript.net/latest/pyscript.js"></script>
     <script>
-      function inputsRetrieve() {
-        let inputs = {};
-        const elements = document.getElementsByClassName("input");
-        for (let i = 0; i < elements.length; i++) {
-          const element = elements[i];
-          inputs[element.id] = parseInt(element.value);
-        }
-        return inputs;
-      }
-
-      function inputsShow(ins) {
-        const signature = ins.join(',');
-        if (signature == cache.signature) {
-          return;
-        } else {
-          cache.signature = signature;
+      class Manager {
+        constructor (elementId, width, editor) {
+          this.element = document.getElementById(elementId);
+          this.width = width;
+          this.editor = editor;
         }
 
-        const element = document.getElementById("inputs");
-        element.innerHTML = "";
-        const table = document.createElement("table");
-        table.innerHTML = "<tr><td>Input Name</td><td>Input Value</td></tr>"
-        for (let i = 0; i < ins.length; i++) {
-          const tr = document.createElement("tr");
-          const tdName = document.createElement("td");
-          const name = ins[i];
-          tdName.innerHTML = name;
-          const tdValue = document.createElement("td");
-          if (!(name in cache.inputs)) {
-            cache.inputs[name] = Math.floor(Math.random() * 256);
+        sizeUpdate () {
+          this.element.setAttribute("style", "width:" + this.width + "px");
+          this.element.parentElement.setAttribute("style", "width:" + this.width + "px");
+        }
+
+        buildExampleMenu () {
+          // Build links to load example programs.
+          const textareas = document.querySelectorAll('.example');
+          const links = document.getElementById('examples');
+          for (let i = 0; i < textareas.length; i++) {
+            const div = document.createElement("div");
+            div.appendChild(document.createTextNode(textareas[i].id));
+            div.classList.add("example-link");
+            if (i == 0) {
+              div.classList.add("example-link-selected");
+            }
+            const self = this;
+            div.onclick = function () {
+              const links_ = document.querySelectorAll('.example-link');
+              for (let j = 0; j < links_.length; j++) {
+                links_[j].className = "example-link";
+              }
+              div.classList.add("example-link-selected");
+              self.editor.codeMirror.setValue(document.getElementById(textareas[i].id).innerText);
+              update();
+            };
+            links.appendChild(div);
           }
-          const value = cache.inputs[name];
-          tdValue.innerHTML = '<input class="input" id="' + name + '" type="number" value="' + value + '"/>';
-          tr.appendChild(tdName);
-          tr.appendChild(tdValue);
-          table.appendChild(tr);
         }
-        element.appendChild(table);
-        
-        const elements = document.getElementsByClassName("input");
-        for (let i = 0; i < elements.length; i++) {
-          const element = elements[i];
-          const upd = function() {
-            cache.inputs[element.id] = parseInt(element.value);
-            update(true);
-          };
-          element.addEventListener("keyup", upd);
-          element.addEventListener("change", upd);
+
+        buildPermalinkButton () {
+          // Add event handler for link generator.
+          const self = this;
+          document.querySelector("#permalink-copy").addEventListener("click", async function () {
+            // Based on example at:
+            // https://dev.to/samternent/json-compression-in-the-browser-with-gzip-and-the-compression-streams-api-4135
+            const stream = new Blob([self.editor.codeMirror.getValue()], {type: 'text/plain'}).stream();
+            const compressedReadableStream = stream.pipeThrough(new CompressionStream("gzip"));
+            const compressedResponse = await new Response(compressedReadableStream);
+            const blob = await compressedResponse.blob();
+            const buffer = await blob.arrayBuffer();
+            const compressedBase64 = encodeURIComponent(btoa(String.fromCharCode( ...new Uint8Array(buffer))));
+            document.getElementById("permalink").value = (
+              location.protocol + '//' + location.host + location.pathname +
+              '?s=' + compressedBase64 // For no compression: btoa(self.editor.codeMirror.getValue())
+            );
+            document.querySelector("#permalink").select();
+            document.execCommand("copy");
+          });
+        }
+
+        async loadInitialSource () {
+          // Load the default example (or decode the supplied permalink).
+          let value = document.getElementById("multiplication_mixed_simple").innerText;
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.has('s')) {
+            // Based on example at:
+            // https://dev.to/samternent/json-compression-in-the-browser-with-gzip-and-the-compression-streams-api-4135
+            function b64decode(str) {
+              const binary_string = window.atob(str);
+              const len = binary_string.length;
+              const bytes = new Uint8Array(new ArrayBuffer(len));
+              for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+              }
+              return bytes;
+            }
+            const compressed = b64decode(decodeURIComponent(urlParams.get('s')));
+            const stream = new Blob([compressed], {type: "text/plain"}).stream();
+            const compressedReadableStream = stream.pipeThrough(new DecompressionStream("gzip"));
+            const resp = await new Response(compressedReadableStream);
+            const blob = await resp.blob();
+            value = await blob.text(); // For no compression: atob(b64compressed);
+          }
+          this.editor.codeMirror.setValue(value);
         }
       }
 
-      function outputsShow(outs) {
-        const element = document.getElementById("outputs");
-        element.innerHTML = "";
-        const table = document.createElement("table");
-        table.innerHTML = "<tr><td>Output Name</td><td>Output Value</td></tr>"
-        for (let i = 0; i < outs.length; i++) {
-          const tr = document.createElement("tr");
-          const tdName = document.createElement("td");
-          tdName.innerHTML = outs[i][0];
-          const tdValue = document.createElement("td");
-          tdValue.innerHTML = outs[i][1];
-          tr.appendChild(tdName);
-          tr.appendChild(tdValue);
-          table.appendChild(tr);
+      class Editor {
+        constructor (elementId, lines, sidebar, update) {
+          this.element = document.getElementById(elementId);
+          this.lines = lines; // Number of lines displayed in interactive editor.
+          this.sidebar = sidebar; // Width of sidebar in pixels.
+
+          // Creaete and configure CodeMirror instance.
+          this.codeMirror = new CodeMirror.fromTextArea(
+            this.element,
+            {
+              lineNumbers: true,
+              viewportMargin: 2, // Use `Infinity` when disabling scroll.
+              scrollbarStyle: "overlay",
+              tabSize: 4,
+              mode: "python",
+              theme: "monokai"
+            }
+          );
+
+          // Add event handlers to CodeMirror instance.
+          this.codeMirror.on("keyup", update);
+          this.codeMirror.on("mousemove", update);
+          let scrollElement = this.codeMirror.getScrollerElement();
+          scrollElement.addEventListener('mousemove', update); 
+          scrollElement.addEventListener('scroll', update);
+
+          this.sizeUpdate(); // Calculate and set the initial size.
         }
-        element.appendChild(table);
+
+        sizeUpdate () {
+          const height = (18 * this.lines) + 7;
+          const width = (document.getElementById("header").offsetWidth - this.sidebar) / 2;
+          this.element.style.width = width + "px";
+          const codeMirrorElement = document.getElementsByClassName("CodeMirror")[0];
+          codeMirrorElement.style.width = width + "px";
+          this.codeMirror.setSize(width, height);
+          this.height = this.element.offsetHeight;
+          this.width = width;
+        }
       }
 
-      function render(rlines) {
-        if (rlines == null) {
-          rlines = cache.rlines;
-        } else {
-          cache.rlines = rlines;
-          cache.report = {};
+      class Report {
+        constructor (elementId, editor) {
+          this.element = document.getElementById(elementId);
+          this.cache = {'source': null, 'analyses': null, 'report': null, 'rlines': null};
+          this.editor = editor;
+
+          this.sizeUpdate(); // Calculate and set the initial size.
         }
 
-        const scrollTop = $(window).scrollTop();
-        const codeTop = document.querySelector(".CodeMirror-code").getBoundingClientRect().top;
-        const rowFirst = 0 + Math.round(
-          .5 + .77777 + 7 + editor.getViewport().from - ((codeTop + scrollTop) / 18)
-        );
-        let linesOutput = [];
-        for (let i = rowFirst; i < Math.min(rlines.length, rowFirst + rowRange); i++) {
-          const row = i + 1;
-          if (row in cache.report) {
-            linesOutput.push(cache.report[row]);
+        sizeUpdate () {
+          const height = this.editor.height, width = this.editor.width;
+          this.element.parentElement.style.height = '493px';
+          this.element.parentElement.style.width = width + 'px';
+          this.element.style.height = '493px';
+          this.element.style.width = width + 'px';
+        }
+
+        display (rlines) {
+          // Use cached HTMl content if there is no updated data.
+          if (rlines == null) {
+            rlines = this.cache.rlines;
           } else {
-            html = rlines[i];
-            linesOutput.push(html);
-            cache.report[row] = html;
+            this.cache.rlines = rlines;
+            this.cache.report = {};
+          }
+
+          // Configure visual properties and content for report.
+          const horizontalScroll = this.editor.codeMirror.getScrollInfo().left;
+          document.getElementById("report").setAttribute("style", "left:-" + horizontalScroll + "px");
+          const scrollTop = $(window).scrollTop();
+          const codeTop = document.querySelector(".CodeMirror-code").getBoundingClientRect().top;
+          const rowFirst = 0 + Math.round(
+            .5 + .77777 + 7 + this.editor.codeMirror.getViewport().from - ((codeTop + scrollTop) / 18)
+          );
+
+          // Build and display the report HTML.
+          let linesOutput = [];
+          for (let i = rowFirst; i < Math.min(rlines.length, rowFirst + this.editor.lines); i++) {
+            const row = i + 1;
+            if (row in this.cache.report) {
+              linesOutput.push(this.cache.report[row]);
+            } else {
+              const html = rlines[i];
+              linesOutput.push(html);
+              this.cache.report[row] = html;
+            }
+          }
+          document.getElementById("report").innerHTML = '<div id="detail"></div>' + linesOutput.join("");
+
+          // Set up event handlers for detail tooltips.
+          const elements = document.getElementsByClassName("detail");
+          for (let i = 0; i < elements.length; i++) {
+            const element = elements[i];
+            element.addEventListener("mouseover", function (event) {
+              const detail = document.getElementById("detail");
+              detail.style.display = "block";
+              detail.style.top = element.offsetTop + 24 + "px";
+              detail.style.left = (
+                element.offsetLeft +
+                element.getBoundingClientRect().width -
+                16
+              ) + "px";
+              detail.innerHTML = element.dataset.detail;
+            });
+            element.addEventListener("mouseout", function (event) { 
+              const detail = document.getElementById("detail");
+              detail.style.display = "none";
+            });
           }
         }
-        document.getElementById('analysis').innerHTML = '<div id="detail"></div>' + linesOutput.join("");
+      }
 
-        // Set up event handlers for detail tooltips.
-        const elements = document.getElementsByClassName("detail");
-        for (let i = 0; i < elements.length; i++) {
-          const element = elements[i];
-          element.addEventListener("mouseover", function (event) {
-            const detail = document.getElementById("detail");
-            detail.style.display = "block";
-            detail.style.top = element.offsetTop + 24 + "px";
-            detail.style.left = (
-              element.offsetLeft +
-              element.getBoundingClientRect().width -
-              16
-            ) + "px";
-            detail.innerHTML = element.dataset.detail;
-          });
-          element.addEventListener("mouseout", function (event) { 
-            const detail = document.getElementById("detail");
-            detail.style.display = "none";
-          });
+      class Interpreter {
+        constructor (elementId) {
+          this.element = document.getElementById(elementId);
+          this.cache = {'inputs': {}, 'signature': null };
+        }
+
+        sizeUpdate (factor) {
+          const width = (document.getElementById("header").offsetWidth - this.sidebar);
+          this.element.style.width = width + "px";
+        }
+
+        inputsRetrieve () {
+          let inputs = {};
+          const elements = document.getElementsByClassName("input");
+          for (let i = 0; i < elements.length; i++) {
+            const element = elements[i];
+            inputs[element.id] = parseInt(element.value);
+          }
+          return inputs;
+        }
+
+        inputsShow (ins) {
+          const signature = ins.join(',');
+          if (signature == this.cache.signature) {
+            return;
+          } else {
+            this.cache.signature = signature;
+          }
+
+          const element = document.getElementById("inputs");
+          element.innerHTML = "";
+          const table = document.createElement("table");
+          table.innerHTML = "<tr><td>Input Name</td><td>Input Value</td></tr>"
+          for (let i = 0; i < ins.length; i++) {
+            const tr = document.createElement("tr");
+            const tdName = document.createElement("td");
+            const name = ins[i];
+            tdName.innerHTML = name;
+            const tdValue = document.createElement("td");
+            if (!(name in this.cache.inputs)) {
+              this.cache.inputs[name] = 1 + Math.floor(Math.random() * 255);
+            }
+            const value = this.cache.inputs[name];
+            tdValue.innerHTML = '<input class="input" id="' + name + '" type="number" value="' + value + '"/>';
+            tr.appendChild(tdName);
+            tr.appendChild(tdValue);
+            table.appendChild(tr);
+          }
+          element.appendChild(table);
+
+          const elements = document.getElementsByClassName("input");
+          for (let i = 0; i < elements.length; i++) {
+            const element = elements[i];
+            const self = this;
+            const upd = function () {
+              self.cache.inputs[element.id] = parseInt(element.value);
+              update(true);
+            };
+            element.addEventListener("keyup", upd);
+            element.addEventListener("change", upd);
+          }
+        }
+
+        outputsShow (outs) {
+          const element = document.getElementById("outputs");
+          element.innerHTML = "";
+          const table = document.createElement("table");
+          table.innerHTML = "<tr><td>Output Name</td><td>Output Value</td></tr>"
+          for (let i = 0; i < outs.length; i++) {
+            const tr = document.createElement("tr");
+            const tdName = document.createElement("td");
+            tdName.innerHTML = outs[i][0];
+            const tdValue = document.createElement("td");
+            tdValue.innerHTML = outs[i][1];
+            tr.appendChild(tdName);
+            tr.appendChild(tdValue);
+            table.appendChild(tr);
+          }
+          element.appendChild(table);
         }
       }
 
       function update(force) {
-        $('.tooltip').remove();
-        const source = editor.getValue();
-        if (cache.analyses == null || source != cache.source || force) {
-          cache.source = source;
-          document.getElementById('payload').innerHTML = editor.getValue();
+        // General update of the entire workspace (called at every keyboard/scroll event,
+        // and also programmatically).
+
+        //$('.tooltip').remove();
+        const source = editor.codeMirror.getValue();
+        if (report.cache.analyses == null || source != report.cache.source || force) {
+          report.cache.source = source;
+          document.getElementById('payload').innerHTML = editor.codeMirror.getValue();
           document.dispatchEvent(new CustomEvent('update'));
         } else {
-          render();
+          report.display();
         }
+
+        // Update the permanent link.
+        document.getElementById("permalink").value = (
+          location.protocol + '//' + location.host + location.pathname +
+          '?s=' + btoa(editor.codeMirror.getValue())
+        );
       }
 
-      function init() {
-        editor = new CodeMirror.fromTextArea(
-          document.querySelector('#editor'),
-          {
-            lineNumbers: true,
-            viewportMargin: 2, // Use `Infinity` when disabling scroll.
-            scrollbarStyle: null,
-            tabSize: 4,
-            mode: 'python',
-            theme: 'monokai'
-          }
-        );
+      window.onload = async function () {
+        const editorHeight = 27; // Vertical height of editor in lines.
+        const managerWidth = 160; // Width of manager sidebar in pixels.
 
-        editor.on("keyup", update);
-        editor.on("mousemove", update);
-        let sh = editor.getScrollerElement();
-        sh.addEventListener('mousemove', update); 
-        sh.addEventListener('scroll', update);
+        editor = new Editor("editor", editorHeight, managerWidth, update);
+        report = new Report("report", editor);
+        interpreter = new Interpreter("interpreter");
+        let manager = new Manager("manager", managerWidth, editor);
 
-        const codePanelsHeight = (18 * rowRange) + 7;
-        editor.setSize(null, codePanelsHeight);
-        document.getElementById("analysis").style.height = (codePanelsHeight - 12) + "px";
-
-        // Build links to load example programs.
-        const textareas = document.querySelectorAll('.example');
-        const links = document.getElementById('examples');
-        for (let i = 0; i < textareas.length; i++) {
-          const div = document.createElement("div");
-          div.appendChild(document.createTextNode(textareas[i].id));
-          div.classList.add("example-link");
-          if (i == 0) {
-            div.classList.add("example-link-selected");
-          }
-          div.onclick = function() {
-            const links_ = document.querySelectorAll('.example-link');
-            for (let j = 0; j < links_.length; j++) {
-              links_[j].className = "example-link";
-            }
-            div.classList.add("example-link-selected");
-            editor.setValue(document.getElementById(textareas[i].id).innerText);
-            update();
-          };
-          links.appendChild(div);
+         // Resize components on window resize.
+        const resize = function () {
+          manager.sizeUpdate();
+          editor.sizeUpdate();
+          report.sizeUpdate();
+          interpreter.sizeUpdate();
         }
+        window.addEventListener('resize', resize, true);
 
-        // Load the default example.
-        editor.setValue(document.getElementById("multiplication_mixed_simple").innerText);
+        // Initialize and perform an initial update (in case working code is already present).
+        manager.buildExampleMenu();
+        manager.buildPermalinkButton();
+        manager.loadInitialSource();
+        resize();
         update();
       }
 
+      // Globals and wrappers for Python.
       let editor = null;
-      const rowRange = 27; // Number of lines displayed in interactive editor.
-      let cache = {
-        'source': null,
-        'skips': null,
-        'analyses': null,
-        'report': null,
-        'rlines': null,
-        'inputs': {},
-        'signature': null
-      };
+      let report = null;
+      let interpreter = null;
+      function reportDisplay(rlines) { report.display(rlines); }
+      function interpreterInputsRetrieve() { return interpreter.inputsRetrieve(); }
+      function interpreterInputsShow(ins) { interpreter.inputsShow(ins); }
+      function interpreterOutputsShow(outs) { interpreter.outputsShow(outs); }
     </script>
 <pre class="example" id="multiplication_mixed_simple">
 # The left-hand panel can scrolled and edited. The right-hand
