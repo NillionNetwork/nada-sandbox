@@ -27,7 +27,6 @@ export const compileProgram = (pyodide, program_code) => {
     <br />
     <textarea id="output" style="width: 100%;" rows="6" disabled></textarea>
     <script type="module">
-      import { runProgramSimulator, compileProgram } from "./index.js";
       const output = document.getElementById("output");
 
       document.querySelector('#button_eval').addEventListener('click', () => {
