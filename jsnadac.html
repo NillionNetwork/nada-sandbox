@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script type="module">
+import init, { run, program_to_bin } from "./nada_run.js";
+
+
+export const runProgramSimulator = async (program, secrets, public_vars) => {
+  // Instantiate our wasm module
+  const programSimulator = await init();
+  console.log(`Running program simulator with arguments: ${program}, ${secrets}, ${public_vars}`)
+  const result = run(program, 5, 1, 128, secrets, public_vars);
+
+  return result;
+};
+
+export const compileProgram = (pyodide, program_code) => {
+  let program_json = pyodide.runPython(program_code + "\n" + "nada_compile(nada_main())");
+  console.log("PROGRAM:\n " + program_json + "\n=========================\n");
+  return program_json;
+}
+    </script>
+  </head>
+  <body style="background-color:#FFFFFF;">
+    <button id="button_eval" style="padding:6px;">Run Simulator on Inputs</button>
+    <br />
+    <textarea id="output" style="width: 100%;" rows="6" disabled></textarea>
+    <script type="module">
+      import { runProgramSimulator, compileProgram } from "./index.js";
+      const output = document.getElementById("output");
+
+      document.querySelector('#button_eval').addEventListener('click', () => {
+        evaluatePython();
+      });
+
+      let inputIndex = 1;
+
+      function addToOutput(s) {
+        output.value += s + "\n";
+      }
+
+      output.value = "Initializing...\n";
+      // init Pyodide
+      async function main() {
+        let pyodide = await loadPyodide();
+        output.value += "Ready!\n";
+        return pyodide;
+      }
+      let pyodideReadyPromise = main();
+
+      async function evaluatePython() {
+        const ins = window.parent.interpreterInputsRetrieve();
+        let ins_ = [[]];
+        for (const name in ins) {
+          ins_.push([name, ins[name]]);
+        }
+
+        output.value = "";
+        let pyodide = await pyodideReadyPromise;
+        await pyodide.loadPackage("micropip");
+        const micropip = pyodide.pyimport("micropip");
+        await micropip.install('nada_dsl-0.1.0-py3-none-any.whl');
+        try {
+          let publicInputs = {};
+          let secretInputs = {};
+          for (let i = 1; i < ins_.length; i++) {
+            let inputName = ins_[i][0];
+            let inputValue = ins_[i][1][0];
+            let inputType = ins_[i][1][1];
+
+            // Check if inputName is a single word
+            if (/\s/.test(inputName)) {
+              throw new Error("Input name must be a single word.");
+            }
+
+            if (!isNaN(inputValue)) {
+              inputValue = parseFloat(inputValue);
+            } else {
+              throw new Error("Input value must be a number.");
+            }
+
+            if (inputType === "PublicInteger") {
+              publicInputs[inputName] = { "type": "PublicInteger", "value": `${inputValue}` };
+            } else if (inputType === "SecretInteger") {
+              secretInputs[inputName] = { "type": "SecretInteger", "value": `${inputValue}` };
+            }
+          }
+          let public_vars = JSON.stringify(publicInputs);
+          let secrets = JSON.stringify(secretInputs);
+
+          let program_json = pyodide.runPython(window.parent.editorValue() + "\n" + "nada_compile(nada_main())");
+          console.log("PROGRAM:\n " + program_json + "\n=========================\n");
+          console.log("INPUTS:\n" + public_vars + "\n\n" + secrets+ "\n=========================\n");
+          
+          // Let's run the program
+          let program_output = await runProgramSimulator(program_json, secrets, public_vars);
+          addToOutput(`RESULT: ${JSON.stringify(Array.from(program_output.entries()))}`)
+
+        } catch (err) {
+          addToOutput(err);
+        }
+      }
+    </script>
+  </body>
+</html>

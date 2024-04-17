@@ -23,7 +23,7 @@
       body { min-width:1200px; font-family:'Cabin',sans-serif; }
       #pyscript_loading_splash { }
       .container { max-width:1260px; }
-      main { padding:40px; }
+      main { padding:40px; margin-bottom:46px; }
       .flex-equal > * { flex:1; }
       @media (min-width: 768px) { .flex-md-equal > * { flex:1; } }
       .header { padding-bottom:24px; font-size:18px; }
@@ -86,29 +86,87 @@
       .tooltip table { margin:4px 0px 4px 0px; border:1px solid #888888; }
       .tooltip td { padding:6px; border:1px solid #888888; text-align:left; }
 
-      .panel-io { width:50%; margin:8px; font-family:Monospace; font-size:12px; font-weight:bold; }
-      .panel-io table { width:100%; border:1px solid #BBBBBB; }
-      .panel-io td { height:32px; padding:4px; border:1px solid #BBBBBB; }
-      .panel-io input { border:1px solid #000000; }
-
+      .panel-tabs {
+        display:table-cell;
+        position:relative;
+        top:-1px;
+        width:160px;
+        padding:0px 0px 12px 5px;
+        vertical-align:top;
+        font-size:12px; font-weight:bold;
+      }
       .panel-tab {
+        position:relative;
+        left:1px;
+        margin-top:-1px;
         padding:8px;
-        border-top:1px solid #000000;
-        border-left:1px solid #000000; 
-        border-bottom:1px solid #000000;
+        border-left:1px solid #000000; border-top:1px solid #000000; border-bottom:1px solid #000000;
         background-color:#F0F0F0;
         line-height:16px;
         cursor:pointer;
       }
+      .panel-tab > hr { margin:4px 0px 4px 0px; }
+      .panel-tab-inactive > hr { display:none; }
+      .panel-tab-inactive > span { display:none; }
+      .panel-tab-inactive { left:5px; width:150px; background-color:#D0D0D0; }
+      .panel-tab-inactive:hover { background-color:#FFFFFF; }
       .panel {
         min-height:300px;
-        border-left:1px solid #000000;
-        border-right:1px solid #000000;
-        border-bottom:1px solid #000000;
+        width:100%;
+        padding:8px;
+        border-left:1px solid #000000; border-right:1px solid #000000; border-bottom:1px solid #000000;
         background-color:#F0F0F0;
       }
 
-      .noselect {
+      #interpreter > div { display:inline-flex; width:100%; }
+      .panel-io { width:50%; margin:4px; }
+      .panel-io table {
+        width:100%;
+        border:1px solid #BBBBBB;
+        background-color:#FFFFFF;
+        font-family:Monospace;
+        font-size:12px;
+        font-weight:bold;
+      }
+      .panel-io td { height:32px; padding:4px; border:1px solid #BBBBBB; }
+      .panel-io input { border:1px solid #000000; }
+      .toggle {
+        position:relative; top:1px;
+        display:inline-block;
+        height:39px;
+        width:25%;
+        border-top:1px solid #BBBBBB; border-left:1px solid #BBBBBB; border-right:1px solid #BBBBBB;
+        padding:8px 8px 12px 8px;
+        background-color:#FFFFFF;
+        font-size:12px;
+        font-weight:bold;
+        cursor:pointer;
+      }
+      .toggle:hover { background-color:#444444; color:#FFFFFF; }
+      .toggle-selected { height:40px; }
+      .textarea-json {
+        height:300px;
+        width:100%;
+        border:1px solid #BBBBBB;
+        font-family:Monospace;
+        font-size:12px;
+      }
+
+      #feedback-console {
+        width:100%;
+        padding:10px;
+        background-color:rgb(39,40,34);
+        white-space:pre-wrap;
+        font-family:Monospace;
+        font-size:12px;
+        color:#FFFFFF;
+      }
+      #feedback-console .information { color:#FFFFFF; }
+      #feedback-console .success { color:#00FF00; }
+      #feedback-console .warning { color:#00FFFF; }
+      #feedback-console .error { color:#FF0000; }
+
+      .no-select {
         -webkit-touch-callout:none; /* iOS Safari */
           -webkit-user-select:none; /* Safari */
            -khtml-user-select:none; /* Konqueror HTML */
@@ -126,7 +184,7 @@
   <body>
     <main>
       <div>
-        <div class="header noselect" id="header">
+        <div class="header no-select" id="header">
           <h2><b>Nada</b> Sandbox</h2>
           <hr/>
           <span>Write, analyze, and simulate Nada programs in your browser.</span>
@@ -178,6 +236,8 @@
                   from nada_audit import *
 
                   def update(_):
+                      messages = []
+                  
                       source = \
                           document.getElementById('payload').innerHTML \
                           .replace('&' + 'amp;', '&') \
@@ -186,29 +246,44 @@
 
                       # Perform static analyses and render the report.
                       try:
+                          messages.append(['Information', 'Auditing.'])
                           lines = source.split('\n')
                           report = audit(source)
                           rlines = report.render().split('\n')
                           js.reportDisplay(to_js(rlines))
+                          messages.append(
+                              ['Success', 'Auditing step completed.']
+                          )
                       except Exception as e:
-                          pass
+                          messages.append(
+                              ['Error', type(e).__name__ + ": " + str(e)]
+                          )
 
                       # Perform abstract interpretation to determine inputs
                       # and then simulate the program on the inputs (either
                       # randomly generated or user-supplied).
                       try:
-                          ins = js.interpreterInputsRetrieve()
+                          messages.append(['Information', 'Executing.'])
+                          ins = js.interpreterInputsRetrieve().to_py()
                           context = {}
-                          Abstract.initialize(ins.to_py())
+                          Abstract.initialize({k: v for (k, [v, _]) in ins.items()})
                           exec(source, context)
                           outs = context['nada_main']()
                           if len(outs) > 0:
-                              js.interpreterInputsShow(to_js([i.name for i in outs[0].inputs]))
+                              js.interpreterInputsShow(to_js([[i.name, i.ty_str] for i in outs[0].inputs]))
                               js.interpreterOutputsShow(
                                   to_js([[o.name, o.value.value] for o in outs[0].outputs])
                               )
+                          messages.append(
+                              ['Success', 'Execution completed.']
+                          )
                       except Exception as e:
-                          pass
+                          messages.append(
+                              ['Error', type(e).__name__ + ": " + str(e)]
+                          )
+
+                      # Display all feedback messages collected during the update.
+                      js.feedbackDisplay(to_js(messages));
 
                   document.addEventListener('update', create_proxy(update))
                   pyscript.write('report', 'ready')
@@ -219,17 +294,32 @@
             </div>
           </div>
           <div style="display:table-row; width:100%;">
-            <div style="display:table-cell; position:relative; top:-1px; left:1px; width:160px; padding:0px 0px 12px 5px; vertical-align:top; font-size:12px; font-weight:bold;">
-              <div class="panel-tab">
-                <b>Interpreter with Inputs/Outputs</b>
-                <hr style="margin:4px 0px 4px 0px;"/>
-                Input boxes are generated automatically from the source. Editing inputs updates outputs via Python-only execution of the source.
-              </div>
-            </div>
+            <div class="panel-tabs" id="panels"></div>
             <div style="display:table-cell; width:calc(100% - 160px);">
-              <div class="panel" id="interpreter" style="display:inline-flex; width:100%;">
-                <div class="panel-io" id="inputs"></div>
-                <div class="panel-io" id="outputs"></div>
+              <div class="panel" id="interpreter">
+                <div>
+                  <div class="panel-io">
+                    <div class="toggle toggle-selected" id="toggle-inputs" onclick="interpreter.toggleInputs('inputs');">Interactive Table</div>
+                    <div class="toggle" id="toggle-inputs-json" onclick="interpreter.toggleInputs('inputs-json');">JSON</div>
+                    <div class="toggle" id="toggle-inputs-json-schema" onclick="interpreter.toggleInputs('inputs-json-schema');">JSON Schema</div>
+                    <div id="inputs"></div>
+                    <textarea class="textarea-json" id="inputs-json" style="display:none;" readonly></textarea>
+                    <textarea class="textarea-json" id="inputs-json-schema" style="display:none;" readonly></textarea>
+                  </div>
+                  <div class="panel-io">
+                    <div class="toggle toggle-selected" id="toggle-outputs-interpreter" onclick="interpreter.toggleOutputs('outputs-interpreter');">Interpreter</div>
+                    <div class="toggle" id="toggle-outputs-simulator" onclick="interpreter.toggleOutputs('outputs-simulator');">Simulator</div>
+                    <div id="outputs-interpreter"></div>
+                    <div id="outputs-simulator" style="display:none;">
+                      <iframe src="jsnadac.html" style="height:300px; width:100%; border:1px solid #BBBBBB;"></iframe>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!--div class="panel" id="metrics">
+              </div-->
+              <div class="panel" id="feedback">
+                <div id="feedback-console"></div>
               </div>
             </div>
           </div>
@@ -465,12 +555,38 @@
           this.element.style.width = width + "px";
         }
 
+        toggleInputs (id) {
+          document.getElementById("inputs").style.display = "none";
+          document.getElementById("inputs-json").style.display = "none";
+          document.getElementById("inputs-json-schema").style.display = "none";
+          document.getElementById("toggle-inputs").classList.remove("toggle-selected");
+          document.getElementById("toggle-inputs-json").classList.remove("toggle-selected");
+          document.getElementById("toggle-inputs-json-schema").classList.remove("toggle-selected");
+          document.getElementById(id).style.display = "block";
+          document.getElementById("toggle-" + id).classList.add("toggle-selected");
+        }
+
+        toggleOutputs (id) {
+          document.getElementById("outputs-interpreter").style.display = "none";
+          document.getElementById("outputs-simulator").style.display = "none";
+          document.getElementById("toggle-outputs-interpreter").classList.remove("toggle-selected");
+          document.getElementById("toggle-outputs-simulator").classList.remove("toggle-selected");
+          document.getElementById(id).style.display = "block";
+          document.getElementById("toggle-" + id).classList.add("toggle-selected");
+        }
+
         inputsRetrieve () {
           let inputs = {};
           const elements = document.getElementsByClassName("input");
+          const elementsTypes = document.getElementsByClassName("input-type");
           for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
-            inputs[element.id] = parseInt(element.value);
+            inputs[element.id] = [null, null];
+            inputs[element.id][0] = parseInt(element.value);
+          }
+          for (let i = 0; i < elementsTypes.length; i++) {
+            const element = elements[i];
+            inputs[element.id][1] = elementsTypes[i].innerHTML;
           }
           return inputs;
         }
@@ -483,14 +599,16 @@
             this.cache.signature = signature;
           }
 
+          let inputsJSON = "";
+          let inputsJSONSchema = {"$schema": "https://json-schema.org/draft/2019-09/schema", "type": "object", "properties": {}};
           const element = document.getElementById("inputs");
           element.innerHTML = "";
           const table = document.createElement("table");
-          table.innerHTML = "<tr><td>Input Name</td><td>Input Value</td></tr>"
+          table.innerHTML = "<tr><td>Input Name</td><td>Input Value</td><td>Type</td></tr>";
           for (let i = 0; i < ins.length; i++) {
             const tr = document.createElement("tr");
             const tdName = document.createElement("td");
-            const name = ins[i];
+            const name = ins[i][0];
             tdName.innerHTML = name;
             const tdValue = document.createElement("td");
             if (!(name in this.cache.inputs)) {
@@ -498,11 +616,28 @@
             }
             const value = this.cache.inputs[name];
             tdValue.innerHTML = '<input class="input" id="' + name + '" type="number" value="' + value + '"/>';
+            const tdType = document.createElement("td");
+            tdType.classList.add("input-type");
+            tdType.innerHTML = ins[i][1];
             tr.appendChild(tdName);
             tr.appendChild(tdValue);
+            tr.appendChild(tdType);
             table.appendChild(tr);
+            
+            inputsJSON += "  \"" + name + "\": " + 
+              JSON.stringify({"value": value, "type": ins[i][1]}, null, 2).replace(/\n/g, '').replace(/\s\s/g, '') +
+              ((i == ins.length - 1) ? "" : ",") + "\n";
+            inputsJSONSchema["properties"][name] = {
+              "type": "object",
+              "properties": {
+                "value": {"type": "integer", "minimum": 1, "maximumExclusive": "2147483647"},
+                "type": {"oneOf": [{"const": "PublicInteger"}, {"const": "SecretInteger"}]}
+              }
+            };
           }
           element.appendChild(table);
+          document.getElementById("inputs-json").value = "{\n" + inputsJSON + "}";
+          document.getElementById("inputs-json-schema").value = JSON.stringify(inputsJSONSchema, null, 2);
 
           const elements = document.getElementsByClassName("input");
           for (let i = 0; i < elements.length; i++) {
@@ -518,7 +653,7 @@
         }
 
         outputsShow (outs) {
-          const element = document.getElementById("outputs");
+          const element = document.getElementById("outputs-interpreter");
           element.innerHTML = "";
           const table = document.createElement("table");
           table.innerHTML = "<tr><td>Output Name</td><td>Output Value</td></tr>"
@@ -533,6 +668,70 @@
             table.appendChild(tr);
           }
           element.appendChild(table);
+        }
+      }
+
+      class Panels {
+        constructor (elementId, tabs) {
+          this.element = document.getElementById(elementId);
+          this.panels = [];
+
+          let first = true;
+          for (let id in tabs) {
+            const tab = tabs[id];
+            const panel = document.getElementById(id);
+            this.panels.push(panel);
+
+            const div = document.createElement("div");
+            div.id = "panel-tab-" + id;
+            div.innerHTML = "<b>" + tab.title + "</b>";
+            const self = this;
+            div.onclick = function () { self.click(div, panel); };
+            if ("description" in tab) {
+              div.innerHTML += "<hr/><span>" + tab.description + "</span>";
+            }
+            div.classList.add("panel-tab");
+            div.classList.add("no-select");
+            if (!first) {
+              div.classList.add("panel-tab-inactive");
+              panel.style.display = "none";
+            }
+            first = false;
+            this.element.appendChild(div);
+          }
+        }
+        
+        click (tab, panel) {
+          const tabs = document.querySelectorAll(".panel-tab");
+          for (let i = 0; i < tabs.length; i++) {
+            tabs[i].classList.add("panel-tab-inactive");
+          }
+          tab.classList.remove("panel-tab-inactive");
+          for (let i = 0; i < this.panels.length; i++) {
+            this.panels[i].style.display = "none";
+          }
+          panel.style.display = "block";
+        }
+      }
+
+      class Feedback {
+        constructor (elementId) {
+          this.element = document.getElementById(elementId);
+          this.console = document.getElementById(elementId + "-console");
+        }
+        
+        display (messages) {
+          this.console.innerHTML = "";
+          for (let i = 0; i < messages.length; i++) {
+            const div = document.createElement("div");
+            const cls = messages[i][0];
+            const txt = messages[i][1];
+            div.innerHTML = (
+              (cls != "Information" ? '<b class="' + cls.toLowerCase() + '">' + cls + '</b>: ' : "") +
+              txt
+            );
+            this.console.appendChild(div);
+          }
         }
       }
 
@@ -568,10 +767,29 @@
         const editorHeight = 27; // Vertical height of editor in lines.
         const managerWidth = 160; // Width of manager sidebar in pixels.
 
+        // Create all interactive components.
         editor = new Editor("editor", editorHeight, managerWidth, update);
         report = new Report("report", editor);
         interpreter = new Interpreter("interpreter");
+        feedback = new Feedback("feedback");
         manager = new Manager("manager", managerWidth, editor);
+
+        // Add tabbed panel dashboard.
+        panels = new Panels("panels", {
+          "interpreter": {
+            "title": "Interpreter &amp; Inputs/Outputs",
+            "description": (
+              "Input boxes are generated automatically from the source. Editing inputs updates " +
+              "outputs via execution or simulation (as selected)."
+            )
+          },
+          /* "metrics": {
+            "title": "Cost Analysis"
+          },*/
+          "feedback": {
+            "title": "Status, Warnings, &amp; Errors"
+          }
+        });
 
          // Resize components on window resize.
         window.addEventListener('resize', resize, true);
@@ -584,15 +802,19 @@
         update();
       }
 
-      // Globals and wrappers for Python.
+      // Globals and wrappers for Python and iframe.
       let editor = null;
       let report = null;
       let interpreter = null;
+      let feedback = null;
       let manager = null;
+      let panels = null;
       function reportDisplay(rlines) { report.display(rlines); }
       function interpreterInputsRetrieve() { return interpreter.inputsRetrieve(); }
       function interpreterInputsShow(ins) { interpreter.inputsShow(ins); }
       function interpreterOutputsShow(outs) { interpreter.outputsShow(outs); }
+      function feedbackDisplay(messages) { feedback.display(messages); }
+      function editorValue() { return editor.codeMirror.getValue().replace("nada_audit", "nada_dsl"); }
     </script>
 <pre class="example" id="multiplication_mixed_simple">
 # The left-hand panel can scrolled and edited. The right-hand
