@@ -2,31 +2,29 @@
 <html>
   <head>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
-    <script type="module">
-import init, { run, program_to_bin } from "./nada_run.js";
-
-
-export const runProgramSimulator = async (program, secrets, public_vars) => {
-  // Instantiate our wasm module
-  const programSimulator = await init();
-  console.log(`Running program simulator with arguments: ${program}, ${secrets}, ${public_vars}`)
-  const result = run(program, 5, 1, 128, secrets, public_vars);
-
-  return result;
-};
-
-export const compileProgram = (pyodide, program_code) => {
-  let program_json = pyodide.runPython(program_code + "\n" + "nada_compile(nada_main())");
-  console.log("PROGRAM:\n " + program_json + "\n=========================\n");
-  return program_json;
-}
-    </script>
   </head>
   <body style="background-color:#FFFFFF;">
     <button id="button_eval" style="padding:6px;">Run Simulator on Inputs</button>
     <br />
     <textarea id="output" style="width: 100%;" rows="6" disabled></textarea>
     <script type="module">
+      import init, { run, program_to_bin } from "./nada_run.js";
+
+      const runProgramSimulator = async (program, secrets, public_vars) => {
+        // Instantiate our wasm module
+        const programSimulator = await init();
+        console.log(`Running program simulator with arguments: ${program}, ${secrets}, ${public_vars}`)
+        const result = run(program, 5, 1, 128, secrets, public_vars);
+    
+        return result;
+      };
+    
+      const compileProgram = (pyodide, program_code) => {
+        let program_json = pyodide.runPython(program_code + "\n" + "nada_compile(nada_main())");
+        console.log("PROGRAM:\n " + program_json + "\n=========================\n");
+        return program_json;
+      }
+
       const output = document.getElementById("output");
 
       document.querySelector('#button_eval').addEventListener('click', () => {
